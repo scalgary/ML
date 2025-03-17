@@ -1,0 +1,32 @@
+---
+title: "Prelim"
+format: html
+---
+
+1 - Create a repo in Github and clone it on local drive
+2 - Set up Python environnement
+3 - Create core folder to keep my functions
+4 - Create data folder
+5 - function summarise
+6 - check for quick linear regression
+
+
+```{python}
+import numpy as np
+import pandas as pd
+from matplotlib.pyplot import subplots
+import statsmodels.api as sm
+
+```
+
+
+```{python}
+from core.helpers import summarize
+Boston = pd.read_csv("data/Boston.csv")
+X = pd.DataFrame({'intercept': np.ones(Boston.shape[0]),
+                  'lstat': Boston['lstat']})
+y = Boston['medv']
+model = sm.OLS(y, X)
+results = model.fit()
+summarize(results)
+```
