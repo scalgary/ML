@@ -7,16 +7,24 @@ jupyter: python3
 ---
 
 1 - Create a repo in Github and clone it on local drive
+
 2 - Set up Python environnement
+
 3 - Create core folder to keep my functions
+
 4 - Create data folder
+
 5 - function summarise
+
 6 - check for quick linear regression
+
  python3 -m ipykernel install --user --name venv
 
 
-# Packages
+
 ```{python}
+#| echo: false
+# Import Packages
 import numpy as np
 import pandas as pd
 from matplotlib.pyplot import subplots
@@ -28,8 +36,10 @@ from sklearn.pipeline import make_pipeline
 
 ```
 
-# Personal Packages
+
 ```{python}
+#| echo: false
+# Personal Packages
 from core.helpers import summarize
 from core.helpers import transform_df_for_model
 from core.helpers import sklearn_sm
@@ -180,64 +190,201 @@ def evalMSE(terms,
 
 
 ```{python}
-evalMSE(terms =['horsepower','cylinders'],response ='mpg',train = Auto_train, test=Auto_test)
+evalMSE(terms =['horsepower','cylinders'], response ='mpg', train = Auto_train, test=Auto_test)
 ```
 
-
+Leave-One-Out (LOO)
 ```{python}
+Auto = pd.read_csv("data/Auto.csv")
 from sklearn.model_selection import \
      (cross_validate,
       KFold,
       ShuffleSplit)
+hp_model = make_pipeline(
+    CustomDataTransformer(['horsepower']),
+    sklearn_sm(sm.OLS))
+#hp_model = linear regression on variable horsepoer (+intercept)
+X, Y = Auto.drop(columns=['mpg']), Auto['mpg']
+cv_results = cross_validate(hp_model,
+                            X,
+                            Y,
+                            cv=Auto.shape[0]) #Leave-One-Out (LOO)
+cv_err = np.mean(cv_results['test_score'])
+cv_err
 ```
 
 
 ```{python}
 
+from sklearn.pipeline import make_pipeline
+from sklearn.model_selection import cross_val_score, KFold
+import pandas as pd
 
-# 📌 Données factices
-data = pd.read_csv("data/Boston.csv")
+# 📌 Charger les données
+Auto = pd.read_csv("data/Auto.csv")
+X, Y = Auto.drop(columns=['mpg']), Auto['mpg']
 
-# 📌 Variables et interactions
-terms = ['lstat', 'age']
+# 📌 Variables pour la transformation
+terms = ['horsepower']
 
-y = data['medv']
-
-
-# 📌 Construction du pipeline
+# 📌 Définir le pipeline
 pipeline = make_pipeline(
     CustomDataTransformer(terms),
-    sm.OLS
-)
+sklearn_sm(sm.OLS))
 
-# 📌 Entraînement du modèle
-pipeline.fit(data, y)
+# 📌 Validation croisée
+cv = KFold(n_splits=5, shuffle=True, random_state=42)
+scores = cross_val_score(pipeline, X, Y, cv=cv, scoring="neg_mean_squared_error")  # MSE négatif
 
-# 📌 Prédiction
-predictions = pipeline.predict(data)
-
-# 📌 Affichage du résumé de la régression
-print(pipeline.named_steps["statsmodelslinearregression"].summary())
+# 📌 Affichage des résultats
+print("Scores de validation croisée (MSE négatif) :", scores)
+print("MSE moyen :", -np.mean(scores))  # Convertir en MSE positif
 ```
 
 
 ```{python}
-
-# 📌 Données factices
-data = pd.read_csv("data/Boston.csv")
-
-# 📌 Variables et interactions
-terms = ['lstat', 'age']
-
-y = data['medv']
-
-
-# 📌 Construction du pipeline
-pipeline = make_pipeline(
-    CustomDataTransformer(terms),
-    sm.OLS
-)
-
-# 📌 Entraînement du modèle
-pipeline.fit(data, y)
+cv_error = np.zeros(5)
+H = np.array(Auto['horsepower'])
+M = sklearn_sm(sm.OLS)
+for i, d in enumerate(range(1,6)):
+    X = np.power.outer(H, np.arange(d+1))
+    M_CV = cross_validate(M,
+                          X,
+                          Y,
+                          cv=Auto.shape[0])
+    cv_error[i] = np.mean(M_CV['test_score'])
+cv_error
 ```
+
+
+```{python}
+cv_error = np.zeros(5)
+cv = KFold(n_splits=10,
+           shuffle=True,
+           random_state=0) # use same splits for each degree
+for i, d in enumerate(range(1,6)):
+    X = np.power.outer(H, np.arange(d+1))
+    M_CV = cross_validate(M,
+                          X,
+                          Y,
+                          cv=cv)
+    cv_error[i] = np.mean(M_CV['test_score'])
+cv_error
+```
+
+
+```{python}
+# 📌 Définir le pipeline
+hp_model = make_pipeline(
+    CustomDataTransformer(terms),
+sklearn_sm(sm.OLS))
+```
+
+```{python}
+Auto.shape
+```
+```{python}
+validation = ShuffleSplit(n_splits=1,
+                          test_size=196,
+                          random_state=0)
+results = cross_validate(hp_model,
+                         Auto.drop(['mpg'], axis=1),
+                         Auto['mpg'],
+                         cv=validation)
+results['test_score']
+```
+
+
+```{python}
+Portfolio = pd.read_csv('data/Portfolio.csv')
+def alpha_func(D, idx):
+   cov_ = np.cov(D[['X','Y']].loc[idx], rowvar=False)
+   return ((cov_[1,1] - cov_[0,1]) /
+           (cov_[0,0]+cov_[1,1]-2*cov_[0,1]))
+```
+
+
+```{python}
+alpha_func(Portfolio, range(100))
+```
+
+
+```{python}
+rng = np.random.default_rng(0)
+alpha_func(Portfolio,
+           rng.choice(100,
+                      100,
+                      replace=True))
+```
+
+
+he bootstrap standard error for arbitrary
+functions 
+
+```{python}
+def boot_SE(func,
+            D,
+            n=None,
+            B=1000,
+            seed=0):
+    rng = np.random.default_rng(seed)
+    first_, second_ = 0, 0
+    n = n or D.shape[0]
+    for _ in range(B):
+        idx = rng.choice(D.index,
+                         n,
+                         replace=True)
+        value = func(D, idx)
+        first_ += value
+        second_ += value**2
+    return np.sqrt(second_ / B - (first_ / B)**2)
+```
+
+
+```{python}
+alpha_SE = boot_SE(alpha_func,
+                   Portfolio,
+                   B=1000,
+                   seed=0)
+alpha_SE
+```
+
+
+```{python}
+def boot_OLS(model_matrix, response, D, idx):
+    D_ = D.loc[idx]
+    Y_ = D_[response]
+    X_ = clone(model_matrix).fit_transform(D_)
+    return sm.OLS(Y_, X_).fit().params
+```
+
+
+```{python}
+pipeline = pipeline
+
+hp_model = make_pipeline(
+    CustomDataTransformer(['horsepower']))
+hp_func = partial(boot_OLS, hp_model, 'mpg')
+```
+
+```{python}
+Auto =Auto.set_index('name')
+```
+```{python}
+from sklearn.base import clone
+rng = np.random.default_rng(0)
+np.array([hp_func(Auto,
+          rng.choice(Auto.index,
+                     392,
+                     replace=True)) for _ in range(10)])
+```
+
+
+```{python}
+hp_se = boot_SE(hp_func,
+                Auto,
+                B=1000,
+                seed=10)
+hp_se
+```
+
