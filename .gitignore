@@ -1,2 +1,4 @@
 venv/
 core/__pycache__/
+Plan_files/
+.DS_Store
