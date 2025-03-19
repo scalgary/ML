@@ -32,7 +32,8 @@ from sklearn.pipeline import make_pipeline
 ```{python}
 from core.helpers import summarize
 from core.helpers import transform_df_for_model
-
+from core.helpers import sklearn_sm
+from core.helpers import CustomDataTransformer
 ```
 
 # Linear regression : 1 variable
@@ -188,38 +189,9 @@ from sklearn.model_selection import \
      (cross_validate,
       KFold,
       ShuffleSplit)
-X, Y = Auto.drop(columns=['mpg']), Auto['mpg']
-
-hp_model = sklearn_sm(sm.OLS,
-                      MS(['horsepower']))
-cv_results = cross_validate(hp_model,
-                            X,
-                            Y,
-                            cv=Auto.shape[0])
-cv_err = np.mean(cv_results['test_score'])
-cv_err
 ```
 
-```{python}
-import statsmodels.api as sm
-from sklearn.base import BaseEstimator, RegressorMixin
 
-class StatsmodelsLinearRegression(BaseEstimator, RegressorMixin):
-    def __init__(self):
-        self.model_ = None
-
-    def fit(self, X, y):
-        X = sm.add_constant(X)  # Ajout d'une constante pour l'intercept
-        self.model_ = sm.OLS(y, X).fit()
-        return self
-
-    def predict(self, X):
-        X = sm.add_constant(X)  # Ajout de l'intercept pour la prédiction
-        return self.model_.predict(X)
-
-    def summary(self):
-        return self.model_.summary()
-```
 ```{python}
 
 
@@ -235,7 +207,7 @@ y = data['medv']
 # 📌 Construction du pipeline
 pipeline = make_pipeline(
     CustomDataTransformer(terms),
-    StatsmodelsLinearRegression()
+    sm.OLS
 )
 
 # 📌 Entraînement du modèle
@@ -246,4 +218,26 @@ predictions = pipeline.predict(data)
 
 # 📌 Affichage du résumé de la régression
 print(pipeline.named_steps["statsmodelslinearregression"].summary())
+```
+
+
+```{python}
+
+# 📌 Données factices
+data = pd.read_csv("data/Boston.csv")
+
+# 📌 Variables et interactions
+terms = ['lstat', 'age']
+
+y = data['medv']
+
+
+# 📌 Construction du pipeline
+pipeline = make_pipeline(
+    CustomDataTransformer(terms),
+    sm.OLS
+)
+
+# 📌 Entraînement du modèle
+pipeline.fit(data, y)
 ```
