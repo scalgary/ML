@@ -6,21 +6,8 @@ format:
 jupyter: python3
 ---
 
-1 - Create a repo in Github and clone it on local drive
-
-2 - Set up Python environnement
-
-3 - Create core folder to keep my functions
-
-4 - Create data folder
-
-5 - function summarise
-
-6 - check for quick linear regression
-
- python3 -m ipykernel install --user --name venv
-
-
+Il s'agit simplement de reprendre certains elements du lab de ISLP.
+Pour des raisons de simplicite, je n'utilise pas le package ISLP qui contient des functions pour wrapper certaines functionnalites
 
 ```{python}
 #| echo: false
@@ -46,6 +33,7 @@ from core.helpers import sklearn_sm
 from core.helpers import CustomDataTransformer
 ```
 
+Meme si c'est l'analyse la plus connue et simple, il est toujours important de bie comprendre la regression lineaire dont le plus gros avantage est 
 # Linear regression : 1 variable
 ## Simple way
 ```{python}
@@ -58,10 +46,14 @@ model = sm.OLS(y, df)
 results = model.fit()
 summarize(results)
 ```
+
+J'ai repris l'idee du pacage ISLP qui est d'avoir une function dont l'objectif est de fitter les raw data pour creer une model.design matrice.
+Tout simplement si on il s'agit d'avoir une pipeline pour que toutes les operations faites sur les donnees raw - soit facilement reproducibles
+
 ## Using my own function
 ```{python}
 
-X = transform_df_for_model(df,['lstat'])
+X = transform_df_for_model(df,['lstat']) #X just extract lstat variable from df and add an intercept variable
 y = Boston['medv']
 model = sm.OLS(y, X)
 results = model.fit()
@@ -120,15 +112,6 @@ summarize(model2.fit())
 results2.summary()
 ```
 
-How to use anova_lm
-anova(reduced,full)
-Ho no need the full model
-
-```{python}
-
-anova_lm(results1,results2)
-```
-
 
 ```{python}
 Carseats = pd.read_csv("data/Carseats.csv")
@@ -142,8 +125,28 @@ model = sm.OLS(y, X)
 summarize(model.fit())
 ```
 
+# How to compare two nested linear models
+1 - full model
+2 - reduced model
+3 - Use of F-statistic to decide or not to rehject the reduced model in favor of the larger maodel
 
-# Split
+Ho = The two models are equally useful for predicting the outcome
+Ha = The larger model is significantly better than the smaller model
+p-value is the smallest significance level (alpha) at which you would reject the null hypothesis,
+
+
+
+```{python}
+
+anova_lm(results1,results2)
+```
+p_value is below my threshold of significance ( p< 0.05) so I cam reject the null hypotheses
+
+
+
+# Validation
+
+## Split
 
 ```{python}
 Auto = pd.read_csv('data/Auto.csv')
@@ -152,7 +155,7 @@ Auto_train, Auto_test = train_test_split(Auto,
                                          random_state=0)
 ```
 
-## use of partial
+### Use of partial from functools
 ```{python}
 
 hp_mm = partial(transform_df_for_model, terms = ['horsepower'])
@@ -168,7 +171,9 @@ test_pred = results.predict(X_test)
 np.mean((y_test - test_pred)**2).item()
 ```
 
-## Function to compute MSE
+### Function to compute MSE
+MSE crucial metric for evaluating the performance of predictive models
+
 ```{python}
 def evalMSE(terms,
             response,
@@ -176,9 +181,11 @@ def evalMSE(terms,
             test):
 
    mm_transform = partial(transform_df_for_model, terms = terms)
+   #X_train = transform_df_for_model(train, terms = terms)
    X_train = mm_transform(train)
    y_train = train[response]
 
+   #X_test = transform_df_for_model(test, terms = terms)
    X_test = mm_transform(test)
    y_test = test[response]
 
@@ -190,10 +197,15 @@ def evalMSE(terms,
 
 
 ```{python}
-evalMSE(terms =['horsepower','cylinders'], response ='mpg', train = Auto_train, test=Auto_test)
+evalMSE(terms =['horsepower','cylinders'], response ='mpg', train = Auto_train, test = Auto_test)
 ```
 
-Leave-One-Out (LOO)
+```{python}
+evalMSE(terms =['horsepower'], response ='mpg', train = Auto_train, test = Auto_test)
+```
+
+
+## Leave-One-Out (LOO)
 ```{python}
 Auto = pd.read_csv("data/Auto.csv")
 from sklearn.model_selection import \
@@ -201,8 +213,8 @@ from sklearn.model_selection import \
       KFold,
       ShuffleSplit)
 hp_model = make_pipeline(
-    CustomDataTransformer(['horsepower']),
-    sklearn_sm(sm.OLS))
+    CustomDataTransformer(['horsepower']), # instead of using the function transfor_df_for_model we use a class and the fit methode use the formction transform_df_for_model
+    sklearn_sm(sm.OLS)) # wrapper sm.OLS for matching sklearn structure
 #hp_model = linear regression on variable horsepoer (+intercept)
 X, Y = Auto.drop(columns=['mpg']), Auto['mpg']
 cv_results = cross_validate(hp_model,
@@ -262,6 +274,7 @@ cv_error = np.zeros(5)
 cv = KFold(n_splits=10,
            shuffle=True,
            random_state=0) # use same splits for each degree
+M = sklearn_sm(sm.OLS)
 for i, d in enumerate(range(1,6)):
     X = np.power.outer(H, np.arange(d+1))
     M_CV = cross_validate(M,
@@ -331,10 +344,10 @@ def boot_SE(func,
     first_, second_ = 0, 0
     n = n or D.shape[0]
     for _ in range(B):
-        idx = rng.choice(D.index,
+        idx = rng.choice(D.index, #sampling idx
                          n,
                          replace=True)
-        value = func(D, idx)
+        value = func(D, idx) # function on the idx
         first_ += value
         second_ += value**2
     return np.sqrt(second_ / B - (first_ / B)**2)
