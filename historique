@@ -1,0 +1,13 @@
+1 - Create a repo in Github and clone it on local drive
+
+2 - Set up Python environnement
+
+3 - Create core folder to keep my functions
+
+4 - Create data folder
+
+5 - function summarise
+
+6 - check for quick linear regression
+
+ python3 -m ipykernel install --user --name venv

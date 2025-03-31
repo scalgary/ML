@@ -1,0 +1,128 @@
+---
+title: "How to use cross_validate from sklearn"
+format:
+  html:
+    code-fold: true
+jupyter: python3
+---
+
+Comment creer un score pour cross_validate
+
+
+
+```{python}
+#| echo: false
+import numpy as np
+import pandas as pd
+from sklearn.linear_model import LinearRegression
+from sklearn.model_selection import cross_validate, KFold
+from sklearn.metrics import make_scorer
+```
+
+# Get the data 
+```{python}
+Hitters = pd.read_csv("data/Hitters.csv")
+from core.helpers import transform_df_for_model
+terms = Hitters.columns.drop(['Salary', 'League','Division','NewLeague'])
+Y = Hitters['Salary']
+X = Hitters.drop(columns=['Salary', 'League','Division','NewLeague'])
+X['intercept'] = np.ones(Hitters.shape[0])
+```
+
+# 
+```{python}
+
+
+
+cv = KFold(n_splits=5,
+           shuffle=True,
+           random_state=42) # use same splits for each degree
+
+# ✅ Custom R² Scoring Function
+def custom_r2_scorer(y_true, y_pred):
+    # Calculate the mean of the true values
+    mean_y_true = np.mean(y_true)
+ 
+    # Calculate the sum of squares of residuals and total sum of squares
+    ss_res = np.sum((y_true - y_pred) ** 2)
+    ss_tot = np.sum((y_true - mean_y_true) ** 2)
+ 
+    # Calculate R²
+    r2 = 1 - (ss_res / ss_tot)
+
+    return r2
+
+custom_r2_score = make_scorer(custom_r2_scorer)
+
+model = LinearRegression()
+
+# ✅ Perform cross-validation with custom R² scorer
+cv_results = cross_validate(model, X, Y, scoring=custom_r2_score, cv =cv, return_train_score=True)
+
+# ✅ Display results
+print("Custom R² scores on test sets:", cv_results["test_score"])
+print("Mean R² across folds:", np.mean(cv_results["test_score"]))
+
+
+# ✅ Perform cross-validation with default R² scorer
+cv_results = cross_validate(model, X, Y, scoring='r2', cv = cv, return_train_score=True)
+
+# ✅ Display results
+print("Custom R² scores on test sets:", cv_results["test_score"])
+print("Mean R² across folds:", np.mean(cv_results["test_score"]))
+```
+
+
+```{python}
+# 2️⃣ Définir un custom scoring (ici R² ajusté basé sur K-Fold CV)
+def r2_cv(X, y, cv=5):
+    kf = KFold(n_splits=cv, shuffle=True, random_state=42)
+    scores = []
+    
+    for train_index, test_index in kf.split(X):
+        X_train, X_test = X.iloc[train_index], X.iloc[test_index]
+        y_train, y_test = y.iloc[train_index], y.iloc[test_index]
+        
+        model_cv = sm.OLS(y_train,X_train).fit()
+       
+        # Predict on the test set
+        y_pred = model_cv.predict(X_test)
+        
+        # Compute R² on test data
+        r2 = 1 - np.sum((y_test - y_pred) ** 2) / np.sum((y_test - np.mean(y_test)) ** 2)
+        
+        scores.append(r2)
+    
+    return np.mean(scores)
+
+r2_cv(X,Y)
+```
+
+
+```{python}
+from core.helpers import sklearn_sm
+
+from sklearn.model_selection import \
+     (cross_validate,
+      KFold)
+
+cv = KFold(n_splits=5,
+           shuffle=True,
+           random_state=42) # use same splits for each degree
+M = sklearn_sm(sm.OLS)
+M_CV = cross_validate(M,
+                          X,
+                          Y,scoring='r2',
+                          cv=cv)
+np.mean(M_CV['test_score'])
+```
+
+
+```{python}
+from sklearn.model_selection import cross_val_score, KFold
+scores = cross_val_score(sklearn_sm(sm.OLS), X, Y, cv = cv, scoring="r2")  # MSE négatif
+
+# 📌 Affichage des résultats
+print("Scores de validation croisée (R2) :", scores)
+print("R2 moyen :", np.mean(scores))  # Convertir en MSE positif
+```
