@@ -46,7 +46,7 @@ def summarize(results,
 
 
 
-def transform_df_for_model(df, terms, interactions=None, contrast ="drop"):
+def transform_df_for_model(df, terms, add_intercept=True, interactions=None, contrast ="drop"):
     import pandas as pd
     import numpy as np
     import formulaic
@@ -121,9 +121,14 @@ def transform_df_for_model(df, terms, interactions=None, contrast ="drop"):
 
     # 7️⃣ Construct the final formula
     formula = "1 + " + " + ".join(map(str, formula_parts))
+   
 
     # 8️⃣ Generate the design matrix using Formulaic
     X = formulaic.model_matrix(formula, df)
+
+    if not add_intercept:
+        X = X.drop(['Intercept'], axis=1)
+
 
     # 9️⃣ Rename "Intercept" column to "intercept"
     if "Intercept" in X.columns:
@@ -178,10 +183,11 @@ from sklearn.base import (BaseEstimator,RegressorMixin,TransformerMixin)
 import pandas as pd
 
 class CustomDataTransformer(BaseEstimator, TransformerMixin):
-    def __init__(self, terms, interactions=None, contrast="drop"):
+    def __init__(self, terms, add_intercept, interactions=None, contrast="drop"):
         self.terms = terms
         self.interactions = interactions
         self.contrast = contrast
+        self.add_intercept = add_intercept
 
     def fit(self, X, y=None):
         # Aucun ajustement nécessaire pour ce transformateur
@@ -189,7 +195,7 @@ class CustomDataTransformer(BaseEstimator, TransformerMixin):
 
     def transform(self, X):
         # Appliquer la transformation personnalisée
-        return transform_df_for_model(X, self.terms, self.interactions, self.contrast)
+        return transform_df_for_model(X, self.terms, self.add_intercept, self.interactions, self.contrast)
     
 import statsmodels.api as sm
 from sklearn.base import BaseEstimator, RegressorMixin
@@ -320,3 +326,36 @@ class sklearn_sm(BaseEstimator,
                 return value / np.mean(sample_weight)
 
            
+
+
+def confusion_table(predicted_labels,
+                    true_labels,
+                    labels=None):
+    from sklearn.metrics import confusion_matrix as _confusion_matrix
+    from sklearn.metrics._classification import unique_labels
+    """
+    Return a data frame version of confusion 
+    matrix with rows given by predicted label
+    and columns the truth.
+
+    Parameters
+    ----------
+
+    predicted_labels: array-like
+        These will form rows of confusion matrix.
+
+    true_labels: array-like
+        These will form columns of confusion matrix.
+    """
+
+    if labels is None:
+        labels = unique_labels(true_labels,
+                               predicted_labels)
+    C = _confusion_matrix(true_labels,
+                          predicted_labels,
+                          labels=labels)
+    df = pd.DataFrame(C.T, columns=labels) # swap rows and columns
+    df.index = pd.Index(labels, name='Predicted')
+    df.columns.name = 'Truth'
+    return df
+        
